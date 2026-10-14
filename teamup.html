@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TeamUp — Sports Community Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .inp { width:100%; border-radius:.75rem; border:1px solid rgb(255 255 255 / .1); background:rgb(15 23 42); padding:.7rem 1rem; font-size:.875rem; color:#fff; outline:none; }
+    .inp:focus { border-color:rgb(163 230 53 / .6); }
+    .lbl { display:block; margin-bottom:.4rem; font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:rgb(148 163 184); }
+    .btn-primary { border-radius:.75rem; background:#a3e635; padding:.75rem 1.5rem; font-size:.875rem; font-weight:800; color:#020617; text-align:center; transition:.15s; }
+    .btn-primary:hover { background:#bef264; }
+    .btn-ghost { border-radius:.75rem; border:1px solid rgb(255 255 255 / .2); background:rgb(255 255 255 / .05); padding:.75rem 1.5rem; font-size:.875rem; font-weight:700; color:#fff; text-align:center; transition:.15s; }
+    .btn-ghost:hover { background:rgb(255 255 255 / .1); }
+    .nav-link.active { color:#a3e635; }
+    .score { width:3rem; border-radius:.5rem; border:1px solid rgb(255 255 255 / .1); background:rgb(2 6 23); padding:.15rem .3rem; text-align:center; font-size:.8rem; }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-white antialiased">
+
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 backdrop-blur">
+    <nav class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
+      <a href="#/" class="flex items-center gap-2">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-lime-400 text-lg font-black text-slate-950">T</div>
+        <span class="text-2xl font-extrabold tracking-tight">TeamUp</span>
+      </a>
+
+      <div class="hidden items-center gap-8 md:flex">
+        <a href="#/tournaments" data-nav="tournaments" class="nav-link text-sm font-medium text-slate-300 transition hover:text-white">Tournaments</a>
+        <a href="#/search" data-nav="search" class="nav-link text-sm font-medium text-slate-300 transition hover:text-white">Find Players & Teams</a>
+        <a href="#/create" data-nav="create" class="nav-link text-sm font-medium text-slate-300 transition hover:text-white">Create</a>
+        <a href="#/about" data-nav="about" class="nav-link text-sm font-medium text-slate-300 transition hover:text-white">About</a>
+      </div>
+
+      <div id="auth-area" class="flex items-center gap-3"></div>
+    </nav>
+    <!-- mobile nav -->
+    <div class="flex justify-around border-t border-white/10 py-3 text-sm md:hidden">
+      <a href="#/tournaments" data-nav="tournaments" class="nav-link text-slate-300">Tournaments</a>
+      <a href="#/search" data-nav="search" class="nav-link text-slate-300">Search</a>
+      <a href="#/create" data-nav="create" class="nav-link text-slate-300">Create</a>
+      <a href="#/about" data-nav="about" class="nav-link text-slate-300">About</a>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer class="border-t border-white/10 bg-slate-950">
+    <div class="mx-auto max-w-7xl px-6 py-12 lg:px-8">
+      <div class="grid gap-10 md:grid-cols-4">
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-2">
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-lime-400 font-black text-slate-950">T</div>
+            <span class="text-2xl font-extrabold">TeamUp</span>
+          </div>
+          <p class="mt-4 max-w-md leading-7 text-slate-500">A lightweight sports community platform connecting amateur athletes, team captains, and tournament organizers.</p>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-white">Platform</h3>
+          <div class="mt-4 space-y-3 text-sm text-slate-500">
+            <a href="#/tournaments" class="block hover:text-white">Tournaments</a>
+            <a href="#/search" class="block hover:text-white">Find Players & Teams</a>
+            <a href="#/about" class="block hover:text-white">About TeamUp</a>
+            <a href="#/signup" class="block hover:text-white">Sign Up</a>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold uppercase tracking-wider text-white">Connect</h3>
+          <div class="mt-4 space-y-3 text-sm text-slate-500">
+            <a href="mailto:hello@teamup.sport" class="block hover:text-white">hello@teamup.sport</a>
+            <a href="#" class="block hover:text-white">Instagram</a>
+            <a href="#" class="block hover:text-white">Telegram</a>
+          </div>
+        </div>
+      </div>
+      <div class="mt-12 flex flex-col justify-between gap-4 border-t border-white/10 pt-8 text-sm text-slate-600 sm:flex-row">
+        <p>© 2026 TeamUp. All rights reserved.</p>
+        <p>Built for amateur athletes and local sports communities.</p>
+      </div>
+    </div>
+  </footer>
+
+  <div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-lime-400 px-5 py-3 text-sm font-bold text-slate-950 opacity-0 transition"></div>
+
+<script>
+/* ---------- API (backend: node server.js) ---------- */
+let token = localStorage.getItem('teamup_token');
+let user = null;   // logged-in user from /api/me
+let events = [];   // events from /api/events
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+function setToken(t) { token = t; t ? localStorage.setItem('teamup_token', t) : localStorage.removeItem('teamup_token'); }
+
+/* ---------- Local data (player search, brackets, profile prefs) ---------- */
+const SPORTS = ['Basketball', 'Football', 'Volleyball', 'Tennis', 'Esports'];
+const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+const GRAD = { Basketball: 'from-lime-400/20', Football: 'from-orange-400/20', Volleyball: 'from-blue-400/20', Tennis: 'from-pink-400/20', Esports: 'from-purple-400/20' };
+
+const seed = {
+  players: [
+    { name: 'Aruzhan K.', sport: 'Basketball', level: 'Intermediate', availability: 'Weekends', role: 'Point guard', type: 'Player' },
+    { name: 'Daniyar S.', sport: 'Football', level: 'Advanced', availability: 'Evenings', role: 'Striker', type: 'Player' },
+    { name: 'Madina T.', sport: 'Volleyball', level: 'Beginner', availability: 'Weekends', role: 'Libero', type: 'Player' },
+    { name: 'Timur A.', sport: 'Basketball', level: 'Advanced', availability: 'Evenings', role: 'Center', type: 'Player' },
+    { name: 'Alina R.', sport: 'Tennis', level: 'Intermediate', availability: 'Mornings', role: 'Doubles', type: 'Player' },
+    { name: 'North Stars', sport: 'Basketball', level: 'Intermediate', availability: 'Weekends', role: 'Looking for 2 players', type: 'Team' },
+    { name: 'FC Steppe', sport: 'Football', level: 'Beginner', availability: 'Evenings', role: 'Looking for a goalkeeper', type: 'Team' },
+    { name: 'Net Ninjas', sport: 'Volleyball', level: 'Advanced', availability: 'Weekends', role: 'Looking for a setter', type: 'Team' },
+    { name: 'Pixel Squad', sport: 'Esports', level: 'Intermediate', availability: 'Evenings', role: 'Looking for 1 player', type: 'Team' },
+  ],
+  brackets: {},
+  profile: { sport: 'Basketball', level: 'Intermediate', availability: 'Weekends', listed: false },
+};
+
+let db = load();
+function load() { try { return JSON.parse(localStorage.getItem('teamup_local')) || structuredClone(seed); } catch { return structuredClone(seed); } }
+function save() { try { localStorage.setItem('teamup_local', JSON.stringify(db)); } catch {} }
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = d => new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+const findT = id => events.find(t => t.id == id);
+function toast(msg) { const el = $('#toast'); el.textContent = msg; el.style.opacity = 1; clearTimeout(el._t); el._t = setTimeout(() => el.style.opacity = 0, 2200); }
+function status(t) {
+  const b = db.brackets[t.id];
+  if (b && champion(b)) return ['Finished', 'bg-white/10 text-slate-300'];
+  if (b) return ['Ongoing', 'bg-orange-400/15 text-orange-300'];
+  if (t.teams.length >= t.max) return ['Full', 'bg-orange-400/15 text-orange-300'];
+  return ['Registration Open', 'bg-lime-400/15 text-lime-300'];
+}
+const options = (arr, sel, all) => (all ? `<option value="">${all}</option>` : '') + arr.map(x => `<option ${x === sel ? 'selected' : ''}>${x}</option>`).join('');
+const head = (kicker, title, sub = '') => `
+  <p class="text-sm font-bold uppercase tracking-widest text-lime-400">${kicker}</p>
+  <h1 class="mt-3 text-4xl font-black tracking-tight sm:text-5xl">${title}</h1>
+  ${sub ? `<p class="mt-4 max-w-2xl text-lg leading-8 text-slate-400">${sub}</p>` : ''}`;
+const wrap = html => `<section><div class="mx-auto max-w-7xl px-6 py-16 lg:px-8">${html}</div></section>`;
+
+/* ---------- Bracket logic (single elimination) ---------- */
+function makeBracket(teams) {
+  let size = 2; while (size < teams.length) size *= 2;
+  const list = [...teams].sort(() => Math.random() - .5);
+  while (list.length < size) list.push(null); // byes
+  const rounds = [];
+  let first = [];
+  for (let i = 0; i < size / 2; i++) first.push({ a: list[i], b: list[size - 1 - i], sa: '', sb: '', w: null });
+  rounds.push(first);
+  for (let n = size / 4; n >= 1; n /= 2) rounds.push(Array.from({ length: n }, () => ({ a: null, b: null, sa: '', sb: '', w: null })));
+  // auto-advance byes
+  first.forEach((m, i) => { if (m.a && !m.b) setWinner(rounds, 0, i, m.a); });
+  return rounds;
+}
+function setWinner(rounds, r, i, w) {
+  rounds[r][i].w = w;
+  if (r + 1 < rounds.length) rounds[r + 1][Math.floor(i / 2)][i % 2 ? 'b' : 'a'] = w;
+}
+const champion = rounds => rounds[rounds.length - 1][0].w;
+const roundName = (r, total) => total - r === 1 ? 'Final' : total - r === 2 ? 'Semifinals' : total - r === 3 ? 'Quarterfinals' : `Round ${r + 1}`;
+
+function bracketHTML(t, editable) {
+  const rounds = db.brackets[t.id];
+  if (!rounds) return `<div class="rounded-2xl border border-dashed border-white/10 p-10 text-center text-slate-500">
+      Bracket not generated yet. ${editable ? 'Need at least 2 teams.' : ''}</div>`;
+  const champ = champion(rounds);
+  return `
+  <div class="overflow-x-auto pb-2">
+    <div class="flex min-w-max gap-6">
+      ${rounds.map((round, r) => `
+        <div class="flex w-56 flex-col">
+          <p class="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">${roundName(r, rounds.length)}</p>
+          <div class="flex flex-1 flex-col justify-around gap-4">
+          ${round.map((m, i) => {
+            const ready = m.a && m.b && !m.w;
+            const line = (team, key, s) => `
+              <div class="flex items-center justify-between gap-2 text-sm ${m.w && m.w === team ? 'font-bold text-white' : 'text-slate-400'}">
+                <span class="truncate">${team ? esc(team) : (m.w || r ? 'TBD' : 'BYE')}</span>
+                ${editable && ready ? `<input class="score" data-r="${r}" data-i="${i}" data-k="${key}" inputmode="numeric" value="${s}">`
+                  : `<span>${s !== '' ? s : '—'}</span>`}
+              </div>`;
+            return `<div class="rounded-xl border ${ready ? 'border-lime-400/30 bg-lime-400/5' : 'border-white/10 bg-slate-800'} p-3 space-y-2">
+              ${line(m.a, 'sa', m.sa)}${line(m.b, 'sb', m.sb)}
+              ${editable && ready ? `<button data-save="${r}-${i}" class="mt-1 w-full rounded-lg bg-lime-400 py-1.5 text-xs font-extrabold text-slate-950 hover:bg-lime-300">Save result</button>` : ''}
+            </div>`;
+          }).join('')}
+          </div>
+        </div>`).join('')}
+      <div class="flex w-48 flex-col">
+        <p class="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Champion</p>
+        <div class="flex flex-1 items-center">
+          <div class="w-full rounded-xl border ${champ ? 'border-lime-400 bg-lime-400 text-slate-950' : 'border-dashed border-white/10 text-slate-500'} p-4 text-center font-bold">
+            ${champ ? '🏆 ' + esc(champ) : 'Championship'}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- Components ---------- */
+function tournamentCard(t) {
+  const [label, cls] = status(t);
+  const canJoin = label === 'Registration Open';
+  return `
+  <article class="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900 transition hover:border-white/20">
+    <div class="flex h-32 items-end bg-gradient-to-br ${GRAD[t.sport] || 'from-lime-400/20'} via-slate-800 to-slate-900 p-6">
+      <div class="flex w-full items-center justify-between">
+        <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">${t.sport}</span>
+        <span class="rounded-full px-3 py-1 text-xs font-bold ${cls}">${label}</span>
+      </div>
+    </div>
+    <div class="flex flex-1 flex-col p-6">
+      <h3 class="text-xl font-bold">${esc(t.name)}</h3>
+      <div class="mt-5 space-y-3 text-sm text-slate-400">
+        <p>👥 ${t.teams.length} / ${t.max} teams</p>
+        <p>📅 ${fmtDate(t.date)}</p>
+        <p>📍 ${esc(t.location)}</p>
+      </div>
+      <a href="#/tournament/${t.id}" class="mt-auto pt-6"><span class="block ${canJoin ? 'btn-primary' : 'btn-ghost'}">${canJoin ? 'Join Tournament' : 'View Tournament'}</span></a>
+    </div>
+  </article>`;
+}
+
+/* ---------- Pages ---------- */
+const pages = {
+  home() {
+    const preview = events.slice(0, 3).map(tournamentCard).join('');
+    const demo = findT(1) || events[0];
+    return `
+    <section class="overflow-hidden border-b border-white/10">
+      <div class="mx-auto grid max-w-7xl items-center gap-16 px-6 py-20 lg:grid-cols-2 lg:px-8 lg:py-28">
+        <div>
+          <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-lime-400/20 bg-lime-400/10 px-4 py-2 text-sm font-semibold text-lime-300">
+            <span class="h-2 w-2 rounded-full bg-lime-400"></span> Built for amateur sports communities
+          </div>
+          <h1 class="max-w-3xl text-5xl font-black leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">Organize Tournaments & Find Your Team Effortlessly</h1>
+          <p class="mt-7 max-w-2xl text-lg leading-8 text-slate-400">Create tournaments, automatically generate brackets, discover local competitions, and find players or teams that match your sport, skill level, and availability.</p>
+          <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+            <a href="#/create" class="btn-primary">Create Tournament</a>
+            <a href="#/search" class="btn-ghost">Find Team / Player</a>
+          </div>
+          <div class="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-400">
+            <span class="flex items-center gap-2"><span class="text-lime-400">✓</span> Automated brackets</span>
+            <span class="flex items-center gap-2"><span class="text-lime-400">✓</span> Player & team search</span>
+            <span class="flex items-center gap-2"><span class="text-lime-400">✓</span> Tournament catalog</span>
+          </div>
+        </div>
+        <div class="relative">
+          <div class="absolute -inset-10 rounded-full bg-lime-400/10 blur-3xl"></div>
+          <div class="relative rounded-3xl border border-white/10 bg-slate-900 p-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-white/10 pb-5">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-widest text-lime-400">Tournament Preview</p>
+                <h2 class="mt-1 text-xl font-bold">Campus Basketball Cup</h2>
+              </div>
+              <span class="rounded-full bg-lime-400/10 px-3 py-1 text-xs font-bold text-lime-300">Live</span>
+            </div>
+            <div class="mt-6">${demo ? bracketHTML(demo, false) : ''}</div>
+            <div class="mt-6 flex items-center justify-between rounded-xl bg-slate-800 px-4 py-3">
+              <span class="text-sm text-slate-400">${demo ? demo.teams.length : 0} teams competing</span>
+              <a href="#/tournament/${demo?.id}" class="text-sm font-bold text-lime-400">Open bracket →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-slate-900/60">
+      <div class="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+        <div class="max-w-2xl">${head('Everything in one place', 'Built to make amateur sports easier.', 'TeamUp replaces scattered chats and manual tournament management with simple, structured tools for athletes, captains, and organizers.')}</div>
+        <div class="mt-12 grid gap-6 md:grid-cols-3">
+          ${[['01', 'Tournament Creation & Catalog', 'Create a tournament with the required information and publish it to a browsable catalog where teams can discover upcoming competitions.', '#/tournaments', 'Explore tournaments'],
+             ['02', 'Dynamic Bracket Visualization', 'Generate brackets automatically and keep them updated as match results are entered throughout the tournament.', '#/tournament/1', 'See how it works'],
+             ['03', 'Player & Team Search', 'Find teammates and teams using practical filters such as sport, skill level, and availability.', '#/search', 'Find your team']]
+            .map(([n, t, d, h, l]) => `
+            <article class="rounded-2xl border border-white/10 bg-slate-900 p-7">
+              <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-lime-400 text-xl font-black text-slate-950">${n}</div>
+              <h3 class="mt-6 text-xl font-bold">${t}</h3>
+              <p class="mt-3 leading-7 text-slate-400">${d}</p>
+              <a href="${h}" class="mt-6 inline-block text-sm font-bold text-lime-400">${l} →</a>
+            </article>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section class="border-b border-white/10">
+      <div class="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+        <div class="grid gap-6 text-center sm:grid-cols-3">
+          ${[['1', 'Create or find', 'Publish a tournament or browse the catalog.'], ['2', 'Register teams', 'Teams join until the spots are filled.'], ['3', 'Play & track', 'Enter scores — the bracket updates itself.']]
+            .map(([n, t, d]) => `<div class="rounded-2xl border border-white/10 p-7">
+              <p class="text-5xl font-black text-lime-400">${n}</p><h3 class="mt-4 text-lg font-bold">${t}</h3><p class="mt-2 text-sm text-slate-400">${d}</p></div>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+        <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div>${head('Join the action', 'Popular & Upcoming Tournaments')}</div>
+          <a href="#/tournaments" class="text-sm font-bold text-lime-400">View all tournaments →</a>
+        </div>
+        <div class="mt-12 grid gap-6 lg:grid-cols-3">${preview}</div>
+      </div>
+    </section>
+
+    <section class="border-y border-white/10 bg-lime-400">
+      <div class="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-6 py-16 lg:flex-row lg:items-center lg:px-8">
+        <div>
+          <h2 class="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Ready to team up?</h2>
+          <p class="mt-2 max-w-xl text-slate-800">Create your tournament or find the players and teams you need to get on the field.</p>
+        </div>
+        <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <a href="#/create" class="rounded-xl bg-slate-950 px-6 py-3.5 text-center text-sm font-bold text-white hover:bg-slate-800">Create Tournament</a>
+          <a href="#/search" class="rounded-xl border border-slate-950/20 px-6 py-3.5 text-center text-sm font-bold text-slate-950 hover:bg-white/20">Find Players</a>
+        </div>
+      </div>
+    </section>`;
+  },
+
+  tournaments() {
+    return wrap(`
+      ${head('Catalog', 'All Tournaments', 'Browse upcoming and ongoing competitions near you.')}
+      <div class="mt-10 grid gap-3 rounded-2xl border border-white/10 bg-slate-900 p-4 sm:grid-cols-3">
+        <input id="f-q" class="inp" placeholder="Search by name or location…">
+        <select id="f-sport" class="inp">${options(SPORTS, '', 'All sports')}</select>
+        <select id="f-status" class="inp">${options(['Registration Open', 'Full', 'Ongoing', 'Finished'], '', 'Any status')}</select>
+      </div>
+      <div id="t-list" class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3"></div>`);
+  },
+
+  tournament(id) {
+    const t = findT(id);
+    if (!t) return pages.notfound();
+    const [label, cls] = status(t);
+    const mine = user && t.registrations.find(r => r.user_id === user.id);
+    const open = label === 'Registration Open';
+    return wrap(`
+      <a href="#/tournaments" class="text-sm font-bold text-slate-400 hover:text-white">← Back to catalog</a>
+      <div class="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-slate-900">
+        <div class="bg-gradient-to-br ${GRAD[t.sport] || 'from-lime-400/20'} via-slate-800 to-slate-900 p-8">
+          <div class="flex flex-wrap gap-2">
+            <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">${t.sport}</span>
+            <span class="rounded-full px-3 py-1 text-xs font-bold ${cls}">${label}</span>
+          </div>
+          <h1 class="mt-4 text-4xl font-black tracking-tight sm:text-5xl">${esc(t.name)}</h1>
+          <div class="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-300">
+            <span>📅 ${fmtDate(t.date)}</span><span>📍 ${esc(t.location)}</span><span>👥 ${t.teams.length} / ${t.max} teams</span>
+          </div>
+        </div>
+        <div class="grid gap-8 p-8 lg:grid-cols-3">
+          <div class="lg:col-span-2">
+            <h2 class="text-lg font-bold">About</h2>
+            <p class="mt-2 leading-7 text-slate-400">${esc(t.description || 'No description.')}</p>
+            <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-800"><div class="h-full bg-lime-400" style="width:${t.teams.length / t.max * 100}%"></div></div>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-slate-950 p-5">
+            ${mine ? `<h3 class="font-bold">You're registered ✓</h3><p class="mt-2 text-sm text-slate-400">Team: <b class="text-white">${esc(mine.team)}</b></p>`
+            : open && !user ? `<h3 class="font-bold">Register your team</h3><p class="mt-2 text-sm text-slate-400">Log in to join this tournament.</p>
+              <div class="mt-4 flex gap-2"><a href="#/login" class="btn-ghost flex-1">Log In</a><a href="#/signup" class="btn-primary flex-1">Sign Up</a></div>`
+            : open ? `
+              <h3 class="font-bold">Register your team</h3>
+              <form id="join-form" class="mt-4 space-y-3">
+                <input name="team" class="inp" placeholder="Team name" required maxlength="30">
+                <button class="btn-primary w-full">Join Tournament</button>
+              </form>` : `<p class="text-sm text-slate-400">Registration is closed.</p>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-10 grid gap-8 lg:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-slate-900 p-6">
+          <h2 class="text-lg font-bold">Teams (${t.teams.length})</h2>
+          <ul class="mt-4 space-y-2">
+            ${t.teams.map((tm, i) => `<li class="flex items-center gap-3 rounded-xl bg-slate-800 px-4 py-2.5 text-sm">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-400/15 text-xs font-bold text-lime-300">${i + 1}</span>${esc(tm)}</li>`).join('') || '<li class="text-sm text-slate-500">No teams yet.</li>'}
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-slate-900 p-6 lg:col-span-2">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-lg font-bold">Bracket</h2>
+            <div class="flex gap-2">
+              ${db.brackets[t.id] ? `<button id="reset-br" class="btn-ghost !px-4 !py-2">Reset</button>`
+                : `<button id="gen-br" class="btn-primary !px-4 !py-2" ${t.teams.length < 2 ? 'disabled' : ''}>Generate bracket</button>`}
+            </div>
+          </div>
+          <p class="mt-1 text-sm text-slate-500">${db.brackets[t.id] ? 'Enter scores to advance winners.' : 'Generating closes registration.'}</p>
+          <div class="mt-6">${bracketHTML(t, true)}</div>
+        </div>
+      </div>`);
+  },
+
+  create() {
+    if (!user) return authGate('create a tournament');
+    return wrap(`
+      <div class="mx-auto max-w-2xl">
+        ${head('Organizer', 'Create Tournament', 'Fill in the details and publish it to the catalog.')}
+        <form id="create-form" class="mt-10 space-y-5 rounded-2xl border border-white/10 bg-slate-900 p-7">
+          <div><label class="lbl">Tournament name</label><input name="name" class="inp" required maxlength="50" placeholder="e.g. Spring Futsal Cup"></div>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div><label class="lbl">Sport</label><select name="sport" class="inp">${options(SPORTS)}</select></div>
+            <div><label class="lbl">Max teams</label><select name="max" class="inp">${options(['4', '8', '16'], '8')}</select></div>
+            <div><label class="lbl">Date</label><input name="date" type="date" class="inp" required></div>
+            <div><label class="lbl">Location</label><input name="location" class="inp" required placeholder="Venue / address"></div>
+          </div>
+          <div><label class="lbl">Description</label><textarea name="description" rows="4" class="inp" placeholder="Rules, format, prizes…"></textarea></div>
+          <button class="btn-primary w-full">Publish Tournament</button>
+        </form>
+      </div>`);
+  },
+
+  search() {
+    return wrap(`
+      ${head('Community', 'Find Players & Teams', 'Filter by sport, skill level and availability.')}
+      <div class="mt-10 grid gap-3 rounded-2xl border border-white/10 bg-slate-900 p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <input id="s-q" class="inp lg:col-span-1" placeholder="Name…">
+        <select id="s-type" class="inp">${options(['Player', 'Team'], '', 'Players & teams')}</select>
+        <select id="s-sport" class="inp">${options(SPORTS, '', 'All sports')}</select>
+        <select id="s-level" class="inp">${options(LEVELS, '', 'Any level')}</select>
+        <select id="s-av" class="inp">${options(['Mornings', 'Evenings', 'Weekends'], '', 'Any time')}</select>
+      </div>
+      <div class="mt-6 flex items-center justify-between">
+        <p id="s-count" class="text-sm text-slate-400"></p>
+        <a href="#/profile" class="text-sm font-bold text-lime-400">+ Post your profile</a>
+      </div>
+      <div id="s-list" class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3"></div>`);
+  },
+
+  about() {
+    return wrap(`
+      <div class="max-w-3xl">
+        ${head('About', 'Sports, without the chaos.', 'TeamUp is a lightweight platform for amateur athletes, captains and organizers. No more lost spreadsheets and endless group chats — just tournaments, brackets and people to play with.')}
+      </div>
+      <div class="mt-12 grid gap-6 md:grid-cols-3">
+        ${[['🏆', 'Organizers', 'Publish events, accept registrations and run brackets in minutes.'], ['🧢', 'Captains', 'Find tournaments to enter and recruit missing players.'], ['⚡', 'Athletes', 'Discover teams that match your level and schedule.']]
+          .map(([i, t, d]) => `<div class="rounded-2xl border border-white/10 bg-slate-900 p-7"><p class="text-3xl">${i}</p><h3 class="mt-4 text-xl font-bold">${t}</h3><p class="mt-2 leading-7 text-slate-400">${d}</p></div>`).join('')}
+      </div>
+      <div class="mt-16 max-w-3xl">
+        <h2 class="text-2xl font-black">FAQ</h2>
+        <div class="mt-6 space-y-3">
+          ${[['Is TeamUp free?', 'Yes, for amateur communities.'], ['How are brackets generated?', 'Single elimination, randomly seeded. Byes are added automatically when the team count is not a power of two.'], ['Can I edit results?', 'Organizers can reset the bracket and enter results again.']]
+            .map(([q, a]) => `<details class="rounded-xl border border-white/10 bg-slate-900 p-5"><summary class="cursor-pointer font-bold">${q}</summary><p class="mt-3 text-slate-400">${a}</p></details>`).join('')}
+        </div>
+      </div>`);
+  },
+
+  login() { return authForm('login'); },
+  signup() { return authForm('signup'); },
+
+  profile() {
+    if (!user) return authGate('see your profile');
+    const u = { ...user, ...db.profile };
+    const mine = events.filter(t => t.owner_id === u.id || t.registrations.some(r => r.user_id === u.id));
+    return wrap(`
+      <div class="grid gap-8 lg:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-slate-900 p-7">
+          <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-lime-400 text-2xl font-black text-slate-950">${esc(u.name[0].toUpperCase())}</div>
+          <h1 class="mt-4 text-2xl font-black">${esc(u.name)}</h1>
+          <p class="text-sm text-slate-400">${esc(u.email)}</p>
+          <form id="profile-form" class="mt-6 space-y-4">
+            <div><label class="lbl">Sport</label><select name="sport" class="inp">${options(SPORTS, u.sport)}</select></div>
+            <div><label class="lbl">Level</label><select name="level" class="inp">${options(LEVELS, u.level)}</select></div>
+            <div><label class="lbl">Availability</label><select name="availability" class="inp">${options(['Mornings', 'Evenings', 'Weekends'], u.availability)}</select></div>
+            <div><label class="lbl">Position / note</label><input name="role" class="inp" value="${esc(u.role || '')}" placeholder="e.g. Goalkeeper"></div>
+            <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="listed" ${u.listed ? 'checked' : ''} class="accent-lime-400"> Show me in player search</label>
+            <button class="btn-primary w-full">Save profile</button>
+          </form>
+          <button id="logout" class="btn-ghost mt-3 w-full">Log out</button>
+        </div>
+        <div class="lg:col-span-2">
+          <div class="flex items-center justify-between"><h2 class="text-2xl font-black">My tournaments</h2><a href="#/create" class="text-sm font-bold text-lime-400">+ Create</a></div>
+          <div class="mt-6 grid gap-6 md:grid-cols-2">${mine.map(tournamentCard).join('') || '<p class="text-slate-500">You haven’t created or joined any tournaments yet.</p>'}</div>
+        </div>
+      </div>`);
+  },
+
+  notfound() {
+    return wrap(`<div class="py-20 text-center"><p class="text-7xl font-black text-lime-400">404</p><p class="mt-4 text-slate-400">Page not found.</p><a href="#/" class="btn-primary mt-8 inline-block">Go home</a></div>`);
+  },
+};
+
+function authForm(mode) {
+  const signup = mode === 'signup';
+  return wrap(`
+    <div class="mx-auto max-w-md">
+      <div class="rounded-3xl border border-white/10 bg-slate-900 p-8">
+        <h1 class="text-3xl font-black">${signup ? 'Create account' : 'Welcome back'}</h1>
+        <p class="mt-2 text-sm text-slate-400">${signup ? 'Join the TeamUp community.' : 'Log in to manage your tournaments.'}</p>
+        <form id="auth-form" data-mode="${mode}" class="mt-8 space-y-4">
+          ${signup ? '<div><label class="lbl">Name</label><input name="name" class="inp" required></div>' : ''}
+          <div><label class="lbl">Email</label><input name="email" type="email" class="inp" required></div>
+          <div><label class="lbl">Password</label><input name="password" type="password" minlength="4" class="inp" required></div>
+          <button class="btn-primary w-full">${signup ? 'Sign Up' : 'Log In'}</button>
+        </form>
+        <p class="mt-6 text-center text-sm text-slate-400">${signup ? 'Already have an account? <a href="#/login" class="font-bold text-lime-400">Log in</a>' : 'No account? <a href="#/signup" class="font-bold text-lime-400">Sign up</a>'}</p>
+      </div>
+    </div>`);
+}
+function authGate(what) {
+  return wrap(`<div class="mx-auto max-w-md rounded-3xl border border-white/10 bg-slate-900 p-10 text-center">
+    <p class="text-4xl">🔒</p><h1 class="mt-4 text-2xl font-black">Log in required</h1>
+    <p class="mt-2 text-slate-400">You need an account to ${what}.</p>
+    <div class="mt-8 flex justify-center gap-3"><a href="#/login" class="btn-ghost">Log In</a><a href="#/signup" class="btn-primary">Sign Up</a></div></div>`);
+}
+
+/* ---------- Page behaviour ---------- */
+const after = {
+  tournaments() {
+    const draw = () => {
+      const q = $('#f-q').value.toLowerCase(), sp = $('#f-sport').value, st = $('#f-status').value;
+      const list = events.filter(t =>
+        (!q || (t.name + t.location).toLowerCase().includes(q)) && (!sp || t.sport === sp) && (!st || status(t)[0] === st));
+      $('#t-list').innerHTML = list.map(tournamentCard).join('') || '<p class="text-slate-500">No tournaments match your filters.</p>';
+    };
+    ['#f-q', '#f-sport', '#f-status'].forEach(s => $(s).addEventListener('input', draw));
+    draw();
+  },
+
+  tournament(id) {
+    const t = findT(id); if (!t) return;
+    $('#join-form')?.addEventListener('submit', e => {
+      e.preventDefault();
+      const name = e.target.team.value.trim();
+      api(`/events/${t.id}/join`, 'POST', { team: name })
+        .then(() => { toast(`${name} joined!`); route(); })
+        .catch(err => toast(err.message));
+    });
+    $('#gen-br')?.addEventListener('click', () => { db.brackets[t.id] = makeBracket(t.teams); save(); toast('Bracket generated'); route(); });
+    $('#reset-br')?.addEventListener('click', () => { if (confirm('Reset bracket and all results?')) { delete db.brackets[t.id]; save(); route(); } });
+    document.querySelectorAll('[data-save]').forEach(btn => btn.addEventListener('click', () => {
+      const [r, i] = btn.dataset.save.split('-').map(Number);
+      const rounds = db.brackets[t.id], m = rounds[r][i];
+      const sa = document.querySelector(`[data-r="${r}"][data-i="${i}"][data-k="sa"]`).value.trim();
+      const sb = document.querySelector(`[data-r="${r}"][data-i="${i}"][data-k="sb"]`).value.trim();
+      if (!/^\d+$/.test(sa) || !/^\d+$/.test(sb)) return toast('Enter both scores');
+      if (+sa === +sb) return toast('No draws in knockout');
+      m.sa = sa; m.sb = sb;
+      setWinner(rounds, r, i, +sa > +sb ? m.a : m.b);
+      save(); route();
+      if (champion(rounds)) toast(`🏆 ${champion(rounds)} wins!`);
+    }));
+  },
+
+  create() {
+    const f = $('#create-form'); if (!f) return;
+    f.date.min = new Date().toISOString().slice(0, 10);
+    f.addEventListener('submit', e => {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(f));
+      api('/events', 'POST', d)
+        .then(t => { toast('Tournament published'); location.hash = `#/tournament/${t.id}`; })
+        .catch(err => toast(err.message));
+    });
+  },
+
+  search() {
+    const draw = () => {
+      const q = $('#s-q').value.toLowerCase(), ty = $('#s-type').value, sp = $('#s-sport').value, lv = $('#s-level').value, av = $('#s-av').value;
+      const all = [...db.players];
+      const me = db.profile;
+      if (user && me.listed) all.unshift({ name: user.name + ' (you)', sport: me.sport, level: me.level, availability: me.availability, role: me.role || '', type: 'Player' });
+      const list = all.filter(p => (!q || p.name.toLowerCase().includes(q)) && (!ty || p.type === ty) && (!sp || p.sport === sp) && (!lv || p.level === lv) && (!av || p.availability === av));
+      $('#s-count').textContent = `${list.length} result${list.length === 1 ? '' : 's'}`;
+      $('#s-list').innerHTML = list.map(p => `
+        <article class="rounded-2xl border border-white/10 bg-slate-900 p-6">
+          <div class="flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl ${p.type === 'Team' ? 'bg-white/10' : 'bg-lime-400 text-slate-950'} text-lg font-black">${esc(p.name[0])}</div>
+            <div><h3 class="font-bold">${esc(p.name)}</h3><p class="text-xs text-slate-500">${p.type} · ${esc(p.role)}</p></div>
+          </div>
+          <div class="mt-5 flex flex-wrap gap-2 text-xs font-bold">
+            <span class="rounded-full bg-white/10 px-3 py-1">${p.sport}</span>
+            <span class="rounded-full bg-lime-400/15 px-3 py-1 text-lime-300">${p.level}</span>
+            <span class="rounded-full bg-white/5 px-3 py-1 text-slate-400">${p.availability}</span>
+          </div>
+          <button data-contact="${esc(p.name)}" class="btn-ghost mt-5 w-full">${p.type === 'Team' ? 'Request to join' : 'Invite to team'}</button>
+        </article>`).join('') || '<p class="text-slate-500">Nobody matches these filters.</p>';
+      document.querySelectorAll('[data-contact]').forEach(b => b.onclick = () => {
+        if (!user) return location.hash = '#/login';
+        b.textContent = 'Request sent ✓'; b.disabled = true; toast(`Request sent to ${b.dataset.contact}`);
+      });
+    };
+    ['#s-q', '#s-type', '#s-sport', '#s-level', '#s-av'].forEach(s => $(s).addEventListener('input', draw));
+    draw();
+  },
+
+  login() { authAfter(); }, signup() { authAfter(); },
+
+  profile() {
+    $('#profile-form')?.addEventListener('submit', e => {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(e.target));
+      Object.assign(db.profile, d, { listed: !!d.listed }); save(); toast('Profile saved');
+    });
+    $('#logout')?.addEventListener('click', async () => {
+      await api('/logout', 'POST').catch(() => {});
+      setToken(null); user = null; location.hash = '#/';
+    });
+  },
+};
+
+function authAfter() {
+  $('#auth-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(e.target));
+    const path = e.target.dataset.mode === 'signup' ? '/register' : '/login';
+    api(path, 'POST', d)
+      .then(res => { setToken(res.token); user = res.user; toast(`Welcome, ${user.name}!`); location.hash = '#/tournaments'; })
+      .catch(err => toast(err.message));
+  });
+}
+
+/* ---------- Router ---------- */
+function renderAuth() {
+  $('#auth-area').innerHTML = user
+    ? `<a href="#/profile" class="flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/5">
+         <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-lime-400 text-xs font-black text-slate-950">${esc(user.name[0].toUpperCase())}</span>${esc(user.name)}</a>`
+    : `<a href="#/login" class="rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold transition hover:border-white/40 hover:bg-white/5">Log In</a>
+       <a href="#/signup" class="rounded-xl bg-lime-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-300">Sign Up</a>`;
+}
+async function route() {
+  const [name = '', arg] = location.hash.replace(/^#\/?/, '').split('/');
+  try { events = await api('/events'); } catch { events = []; toast('Server is not running: node server.js'); }
+  const demo = findT(1);
+  if (demo && !db.brackets[1]) { db.brackets[1] = makeBracket(demo.teams); save(); }
+  const page = name === '' ? 'home' : name;
+  const fn = pages[page] || pages.notfound;
+  $('#app').innerHTML = fn(arg);
+  after[page]?.(arg);
+  renderAuth();
+  document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === page));
+}
+window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
+// restore session from saved token, then render
+(token ? api('/me').then(u => user = u).catch(() => setToken(null)) : Promise.resolve()).then(route);
+</script>
+</body>
+</html>
